@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Todo App</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <header>
+        <h1>Todo</h1>
+        <p class="subtitle">Simple local todo app (Electron + local persistence)</p>
+      </header>
+
+      <section class="add-todo" aria-label="Add todo">
+        <input id="todo-input" type="text" placeholder="What needs to be done?" maxlength="200" />
+        <button id="add-button" type="button">Add</button>
+      </section>
+
+      <section>
+        <ul id="todo-list" class="todo-list" aria-live="polite"></ul>
+        <p id="empty-state" class="empty-state">No tasks in this view.</p>
+      </section>
+
+      <footer class="footer-controls">
+        <span id="items-left">0 items left</span>
+        <div class="filters" role="group" aria-label="Filter todos">
+          <button data-filter="all" class="active" aria-pressed="true" type="button">All</button>
+          <button data-filter="active" aria-pressed="false" type="button">Active</button>
+          <button data-filter="completed" aria-pressed="false" type="button">Completed</button>
+        </div>
+        <button id="clear-completed" type="button">Clear completed</button>
+      </footer>
+    </main>
+
+    <script src="renderer.js"></script>
+  </body>
+</html>
