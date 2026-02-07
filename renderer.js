@@ -7,7 +7,7 @@ const clearCompleted = document.getElementById('clear-completed');
 const filters = document.querySelectorAll('[data-filter]');
 
 let todos = [];
-let currentFilter = 'all';
+let currentFilter = 'active';
 
 function createTodoItem(text) {
   return {
