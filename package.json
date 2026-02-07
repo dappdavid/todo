@@ -1,0 +1,21 @@
+{
+  "name": "electron-todo-app",
+  "version": "1.0.0",
+  "description": "A simple offline todo app built with Electron.",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron .",
+    "test": "node --check main.js && node --check preload.js && node --check renderer.js"
+  },
+  "keywords": [
+    "electron",
+    "todo",
+    "desktop"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^31.0.2"
+  }
+}
