@@ -1,6 +1,11 @@
 const board = document.getElementById('board');
 const addColumnBtn = document.getElementById('add-column-btn');
 
+// Theme Elements
+const themeToggleBtn = document.getElementById('theme-toggle-btn');
+const themeIconSun = themeToggleBtn.querySelector('.theme-icon-sun');
+const themeIconMoon = themeToggleBtn.querySelector('.theme-icon-moon');
+
 // Modal Elements
 const modalOverlay = document.getElementById('modal-overlay');
 const columnModal = document.getElementById('column-modal');
@@ -32,6 +37,26 @@ let draggedId = null;
 let currentEditingTaskId = null;
 let currentTargetColumnId = null;
 let itemToDelete = null; // { type: 'task', id: '...' }
+
+// Theme Logic
+function setTheme(theme) {
+  document.documentElement.setAttribute('data-theme', theme);
+  localStorage.setItem('theme', theme);
+
+  if (theme === 'light') {
+    themeIconSun.style.display = 'none';
+    themeIconMoon.style.display = 'block';
+  } else {
+    themeIconSun.style.display = 'block';
+    themeIconMoon.style.display = 'none';
+  }
+}
+
+themeToggleBtn.addEventListener('click', () => {
+  const currentTheme = localStorage.getItem('theme') || 'dark';
+  const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+  setTheme(newTheme);
+});
 
 const defaultColumns = [
   { id: 'new', title: 'New' },
@@ -122,9 +147,23 @@ function renderColumn(column) {
   countBadge.textContent = taskCount;
   countBadge.style.opacity = '0.5';
   countBadge.style.fontSize = '0.9em';
-  countBadge.style.marginLeft = '8px';
 
-  header.append(title, countBadge);
+  const headerActions = document.createElement('div');
+  headerActions.style.display = 'flex';
+  headerActions.style.alignItems = 'center';
+  headerActions.style.gap = '8px';
+
+  const deleteColBtn = document.createElement('button');
+  deleteColBtn.className = 'icon-btn';
+  deleteColBtn.innerHTML = '&times;';
+  deleteColBtn.title = 'Delete Column';
+  deleteColBtn.onclick = (e) => {
+    e.stopPropagation();
+    promptDeleteColumn(column.id);
+  };
+
+  headerActions.append(countBadge, deleteColBtn);
+  header.append(title, headerActions);
   colEl.appendChild(header);
 
   // Task List
@@ -260,6 +299,13 @@ async function deleteTask(taskId) {
   renderBoard();
 }
 
+async function deleteColumn(columnId) {
+  data.columns = data.columns.filter(c => c.id !== columnId);
+  data.tasks = data.tasks.filter(t => t.columnId !== columnId);
+  await persistData();
+  renderBoard();
+}
+
 // --- Modals ---
 
 function showModalOverlay(show) {
@@ -347,7 +393,20 @@ taskDeleteBtn.addEventListener('click', () => {
 
 // Delete Confirmation
 function promptDeleteTask(taskId) {
+  document.getElementById('delete-modal-text').textContent = 'Are you sure you want to delete this item?';
   itemToDelete = { type: 'task', id: taskId };
+  showModalOverlay(true);
+  deleteModal.classList.remove('hidden');
+}
+
+function promptDeleteColumn(columnId) {
+  const taskCount = data.tasks.filter(t => t.columnId === columnId).length;
+  const message = taskCount > 0
+    ? 'Delete column and all its tasks?'
+    : 'Delete column?';
+
+  document.getElementById('delete-modal-text').textContent = message;
+  itemToDelete = { type: 'column', id: columnId };
   showModalOverlay(true);
   deleteModal.classList.remove('hidden');
 }
@@ -358,8 +417,12 @@ deleteCancelBtn.addEventListener('click', () => {
 });
 
 deleteConfirmBtn.addEventListener('click', async () => {
-  if (itemToDelete && itemToDelete.type === 'task') {
-    await deleteTask(itemToDelete.id);
+  if (itemToDelete) {
+    if (itemToDelete.type === 'task') {
+      await deleteTask(itemToDelete.id);
+    } else if (itemToDelete.type === 'column') {
+      await deleteColumn(itemToDelete.id);
+    }
   }
   showModalOverlay(false);
   itemToDelete = null;
@@ -367,6 +430,9 @@ deleteConfirmBtn.addEventListener('click', async () => {
 
 // Initialization
 async function init() {
+  const savedTheme = localStorage.getItem('theme') || 'dark';
+  setTheme(savedTheme);
+
   try {
     const loaded = await window.todoStorage.load();
 

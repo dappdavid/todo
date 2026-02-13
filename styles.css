@@ -1,6 +1,23 @@
 :root {
-  color-scheme: light dark;
+  color-scheme: dark;
   font-family: Inter, Segoe UI, Arial, sans-serif;
+
+  /* Dark Mode Variables (Default) */
+  --bg-gradient: radial-gradient(circle at 10% 20%, #1b1f39, #161616 45%);
+  --header-bg: #212733f0;
+  --board-bg: transparent;
+  --column-bg: #2b3244;
+  --card-bg: #1e2330;
+  --text-color: #f2f2f2;
+  --primary-color: #5267ff;
+  --secondary-color: #323b54;
+  --danger-color: #ff4c61;
+}
+
+[data-theme="light"] {
+  color-scheme: light;
+
+  /* Light Mode Variables */
   --bg-gradient: radial-gradient(circle at 10% 20%, #e0e8ff, #f8f8f8 45%);
   --header-bg: #ffffffee;
   --board-bg: transparent;
@@ -10,20 +27,6 @@
   --primary-color: #5267ff;
   --secondary-color: #ebecf0;
   --danger-color: #ff4c61;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg-gradient: radial-gradient(circle at 10% 20%, #1b1f39, #161616 45%);
-    --header-bg: #212733f0;
-    --board-bg: transparent;
-    --column-bg: #2b3244;
-    --card-bg: #1e2330;
-    --text-color: #f2f2f2;
-    --primary-color: #5267ff;
-    --secondary-color: #323b54;
-    --danger-color: #ff4c61;
-  }
 }
 
 body {
@@ -48,6 +51,12 @@ body {
   justify-content: space-between;
   align-items: center;
   z-index: 10;
+}
+
+.header-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
 }
 
 h1 {
@@ -103,15 +112,17 @@ h1 {
 .board {
   flex: 1;
   display: flex;
-  overflow-x: auto;
+  overflow-x: hidden;
+  flex-direction: row;
+  flex-wrap: nowrap;
   padding: 20px;
   gap: 20px;
   align-items: flex-start; /* Align columns to top */
 }
 
 .column {
-  min-width: 300px;
-  width: 300px;
+  flex: 1;
+  min-width: 0;
   background: var(--column-bg);
   border-radius: 8px;
   padding: 12px;
