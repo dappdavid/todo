@@ -1,6 +1,24 @@
 const board = document.getElementById('board');
 const addColumnBtn = document.getElementById('add-column-btn');
 
+// Modal Elements
+const modalOverlay = document.getElementById('modal-overlay');
+const columnModal = document.getElementById('column-modal');
+const columnInput = document.getElementById('column-input');
+const columnSaveBtn = document.getElementById('column-save-btn');
+const columnCancelBtn = document.getElementById('column-cancel-btn');
+
+const taskModal = document.getElementById('task-modal');
+const taskTitleInput = document.getElementById('task-title-input');
+const taskDescInput = document.getElementById('task-desc-input');
+const taskSaveBtn = document.getElementById('task-save-btn');
+const taskCancelBtn = document.getElementById('task-cancel-btn');
+const taskDeleteBtn = document.getElementById('task-delete-btn');
+
+const deleteModal = document.getElementById('delete-modal');
+const deleteConfirmBtn = document.getElementById('delete-confirm-btn');
+const deleteCancelBtn = document.getElementById('delete-cancel-btn');
+
 let data = {
   columns: [],
   tasks: []
@@ -10,6 +28,11 @@ let data = {
 let draggedType = null;
 let draggedId = null;
 
+// Modal State
+let currentEditingTaskId = null;
+let currentTargetColumnId = null;
+let itemToDelete = null; // { type: 'task', id: '...' }
+
 const defaultColumns = [
   { id: 'new', title: 'New' },
   { id: 'inprogress', title: 'In Progress' },
@@ -17,10 +40,11 @@ const defaultColumns = [
   { id: 'done', title: 'Done' }
 ];
 
-function createTodoItem(text, columnId) {
+function createTodoItem(text, description, columnId) {
   return {
     id: crypto.randomUUID(),
     text: text.trim(),
+    description: description || '',
     columnId: columnId,
     createdAt: Date.now()
   };
@@ -47,7 +71,6 @@ function renderColumn(column) {
   // Column Drag Events
   colEl.addEventListener('dragstart', (e) => {
     if (draggedType === 'task') return;
-
     e.stopPropagation();
     draggedType = 'column';
     draggedId = column.id;
@@ -109,23 +132,25 @@ function renderColumn(column) {
   taskList.className = 'task-list';
   taskList.dataset.columnId = column.id;
 
+  // Crucial: Handle dragover on the list to allow dropping even if hovering over other cards
   taskList.addEventListener('dragover', (e) => {
     if (draggedType === 'task') {
       e.preventDefault();
+      e.stopPropagation(); // Stop bubbling to column
       e.dataTransfer.dropEffect = 'move';
-      taskList.style.backgroundColor = 'rgba(0,0,0,0.03)';
+      taskList.classList.add('drag-over');
     }
   });
 
   taskList.addEventListener('dragleave', () => {
-    taskList.style.backgroundColor = '';
+    taskList.classList.remove('drag-over');
   });
 
   taskList.addEventListener('drop', async (e) => {
     if (draggedType === 'task') {
       e.preventDefault();
       e.stopPropagation();
-      taskList.style.backgroundColor = '';
+      taskList.classList.remove('drag-over');
 
       const task = data.tasks.find(t => t.id === draggedId);
       if (task && task.columnId !== column.id) {
@@ -151,10 +176,7 @@ function renderColumn(column) {
   addBtn.className = 'add-task-btn';
   addBtn.textContent = '+ Add a card';
   addBtn.onclick = () => {
-    const text = prompt('Enter task description:');
-    if (text) {
-      addTask(text, column.id);
-    }
+    openTaskModal(null, column.id);
   };
   colEl.appendChild(addBtn);
 
@@ -166,6 +188,9 @@ function renderTask(task) {
   card.className = 'task-card';
   card.dataset.id = task.id;
   card.draggable = true;
+
+  // Prevent pointer events on children during drag to avoid interference
+  // But we need to handle dragstart on the card itself.
 
   card.addEventListener('dragstart', (e) => {
     e.stopPropagation();
@@ -182,12 +207,14 @@ function renderTask(task) {
     draggedId = null;
   });
 
+  // Clicking opens details
+  card.onclick = () => {
+    openTaskModal(task);
+  };
+
   const content = document.createElement('div');
   content.className = 'task-content';
   content.textContent = task.text;
-  content.title = 'Double click to edit';
-
-  content.addEventListener('dblclick', () => makeEditable(content, task.id));
 
   const actions = document.createElement('div');
   actions.className = 'task-actions';
@@ -197,8 +224,8 @@ function renderTask(task) {
   deleteBtn.innerHTML = '&times;';
   deleteBtn.title = 'Delete';
   deleteBtn.onclick = (e) => {
-    e.stopPropagation();
-    deleteTask(task.id);
+    e.stopPropagation(); // Prevent opening modal
+    promptDeleteTask(task.id);
   };
 
   actions.appendChild(deleteBtn);
@@ -207,12 +234,24 @@ function renderTask(task) {
   return card;
 }
 
-async function addTask(text, columnId) {
+// --- Logic ---
+
+async function addTask(text, description, columnId) {
   if (!text.trim()) return;
-  const task = createTodoItem(text, columnId);
+  const task = createTodoItem(text, description, columnId);
   data.tasks.push(task);
   await persistData();
   renderBoard();
+}
+
+async function updateTask(taskId, text, description) {
+  const task = data.tasks.find(t => t.id === taskId);
+  if (task) {
+    task.text = text.trim();
+    task.description = description || '';
+    await persistData();
+    renderBoard();
+  }
 }
 
 async function deleteTask(taskId) {
@@ -221,61 +260,112 @@ async function deleteTask(taskId) {
   renderBoard();
 }
 
-function makeEditable(textNode, taskId) {
-  const currentText = textNode.textContent;
-  const input = document.createElement('input');
-  input.type = 'text';
-  input.value = currentText;
-  input.className = 'edit-input';
-  input.style.width = '100%';
-  input.style.boxSizing = 'border-box';
+// --- Modals ---
 
-  const commit = async () => {
-    const updated = input.value.trim();
-    if (updated && updated !== currentText) {
-      const task = data.tasks.find(t => t.id === taskId);
-      if (task) {
-        task.text = updated;
-        await persistData();
-      }
-    } else if (!updated) {
-       await deleteTask(taskId);
-       return;
-    }
-    renderBoard();
-  };
-
-  input.addEventListener('keydown', async (event) => {
-    if (event.key === 'Enter') {
-        input.blur();
-    }
-    if (event.key === 'Escape') {
-        renderBoard();
-    }
-  });
-
-  input.addEventListener('blur', () => {
-    commit();
-  });
-
-  textNode.replaceWith(input);
-  input.focus();
-  input.select();
+function showModalOverlay(show) {
+  if (show) {
+    modalOverlay.classList.remove('hidden');
+  } else {
+    modalOverlay.classList.add('hidden');
+    // Hide all modals
+    columnModal.classList.add('hidden');
+    taskModal.classList.add('hidden');
+    deleteModal.classList.add('hidden');
+  }
 }
 
-addColumnBtn.addEventListener('click', async () => {
-  const title = prompt('Enter column title:');
-  if (title && title.trim()) {
+// Column Modal
+addColumnBtn.addEventListener('click', () => {
+  columnInput.value = '';
+  showModalOverlay(true);
+  columnModal.classList.remove('hidden');
+  columnInput.focus();
+});
+
+columnCancelBtn.addEventListener('click', () => showModalOverlay(false));
+
+columnSaveBtn.addEventListener('click', async () => {
+  const title = columnInput.value.trim();
+  if (title) {
     const newCol = {
       id: crypto.randomUUID(),
-      title: title.trim()
+      title: title
     };
     data.columns.push(newCol);
     await persistData();
     renderBoard();
+    showModalOverlay(false);
   }
 });
 
+// Task Modal
+function openTaskModal(task = null, columnId = null) {
+  showModalOverlay(true);
+  taskModal.classList.remove('hidden');
+
+  if (task) {
+    // Edit Mode
+    currentEditingTaskId = task.id;
+    currentTargetColumnId = null; // Not adding new
+    taskTitleInput.value = task.text;
+    taskDescInput.value = task.description || '';
+    taskDeleteBtn.classList.remove('hidden');
+    document.getElementById('task-modal-title').textContent = 'Task Details';
+  } else {
+    // Add Mode
+    currentEditingTaskId = null;
+    currentTargetColumnId = columnId;
+    taskTitleInput.value = '';
+    taskDescInput.value = '';
+    taskDeleteBtn.classList.add('hidden');
+    document.getElementById('task-modal-title').textContent = 'Add Task';
+  }
+  taskTitleInput.focus();
+}
+
+taskCancelBtn.addEventListener('click', () => showModalOverlay(false));
+
+taskSaveBtn.addEventListener('click', async () => {
+  const title = taskTitleInput.value.trim();
+  const desc = taskDescInput.value; // Description can be anything
+
+  if (!title) return; // Title is required
+
+  if (currentEditingTaskId) {
+    await updateTask(currentEditingTaskId, title, desc);
+  } else if (currentTargetColumnId) {
+    await addTask(title, desc, currentTargetColumnId);
+  }
+  showModalOverlay(false);
+});
+
+taskDeleteBtn.addEventListener('click', () => {
+  // Close task modal and open delete confirmation
+  taskModal.classList.add('hidden');
+  promptDeleteTask(currentEditingTaskId);
+});
+
+// Delete Confirmation
+function promptDeleteTask(taskId) {
+  itemToDelete = { type: 'task', id: taskId };
+  showModalOverlay(true);
+  deleteModal.classList.remove('hidden');
+}
+
+deleteCancelBtn.addEventListener('click', () => {
+  showModalOverlay(false);
+  itemToDelete = null;
+});
+
+deleteConfirmBtn.addEventListener('click', async () => {
+  if (itemToDelete && itemToDelete.type === 'task') {
+    await deleteTask(itemToDelete.id);
+  }
+  showModalOverlay(false);
+  itemToDelete = null;
+});
+
+// Initialization
 async function init() {
   try {
     const loaded = await window.todoStorage.load();
@@ -285,6 +375,7 @@ async function init() {
       data.tasks = loaded.map(todo => ({
         id: todo.id,
         text: todo.text,
+        description: '', // Migration default
         createdAt: todo.createdAt || Date.now(),
         columnId: todo.completed ? 'done' : 'new'
       }));
