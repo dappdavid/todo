@@ -116,7 +116,7 @@ h1 {
   flex-direction: row;
   flex-wrap: nowrap;
   padding: 20px;
-  gap: 0;
+  gap: 16px;
   align-items: flex-start; /* Align columns to top */
 }
 
@@ -124,17 +124,12 @@ h1 {
   flex: 1;
   min-width: 0;
   background: var(--column-bg);
-  border-radius: 0;
+  border-radius: 12px;
   padding: 12px;
   display: flex;
   flex-direction: column;
   height: 100%;
   box-shadow: none;
-  border-right: 1px solid var(--secondary-color);
-}
-
-.column:last-child {
-  border-right: none;
 }
 
 .column-header {
@@ -170,7 +165,7 @@ h1 {
 .task-card {
   background: var(--card-bg);
   padding: 10px 12px;
-  border-radius: 6px;
+  border-radius: 12px;
   box-shadow: 0 1px 3px rgba(0,0,0,0.1);
   cursor: pointer; /* Change to pointer to indicate clickable */
   position: relative;
@@ -324,6 +319,10 @@ h1 {
   font-size: 0.9rem;
   color: var(--text-color);
   opacity: 0.8;
+}
+
+.hidden {
+  display: none !important;
 }
 
 /* Scrollbar styling */
