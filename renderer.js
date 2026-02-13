@@ -134,6 +134,11 @@ function renderColumn(column) {
     }
   });
 
+  colEl.addEventListener('dblclick', (e) => {
+    if (e.target.closest('.task-card') || e.target.closest('button') || e.target.closest('.icon-btn')) return;
+    openTaskModal(null, column.id);
+  });
+
   // Header
   const header = document.createElement('div');
   header.className = 'column-header';
@@ -178,6 +183,16 @@ function renderColumn(column) {
       e.stopPropagation(); // Stop bubbling to column
       e.dataTransfer.dropEffect = 'move';
       taskList.classList.add('drag-over');
+
+      const afterElement = getDragAfterElement(taskList, e.clientY);
+      const draggable = document.querySelector('.dragging');
+      if (draggable) {
+        if (afterElement == null) {
+          taskList.appendChild(draggable);
+        } else {
+          taskList.insertBefore(draggable, afterElement);
+        }
+      }
     }
   });
 
@@ -191,9 +206,29 @@ function renderColumn(column) {
       e.stopPropagation();
       taskList.classList.remove('drag-over');
 
-      const task = data.tasks.find(t => t.id === draggedId);
-      if (task && task.columnId !== column.id) {
-        task.columnId = column.id;
+      // Update Order and Column for ALL tasks based on DOM
+      const allColumns = document.querySelectorAll('.column');
+      let tasksUpdated = false;
+
+      allColumns.forEach(col => {
+        const colId = col.dataset.id;
+        const cards = [...col.querySelectorAll('.task-card')];
+
+        cards.forEach((card, index) => {
+          const taskId = card.dataset.id;
+          const task = data.tasks.find(t => t.id === taskId);
+          if (task) {
+             // Update if changed
+             if (task.columnId !== colId || task.order !== index) {
+               task.columnId = colId;
+               task.order = index;
+               tasksUpdated = true;
+             }
+          }
+        });
+      });
+
+      if (tasksUpdated) {
         await persistData();
         renderBoard();
       }
@@ -202,7 +237,14 @@ function renderColumn(column) {
 
   const columnTasks = data.tasks
     .filter(t => t.columnId === column.id)
-    .sort((a, b) => a.createdAt - b.createdAt);
+    .sort((a, b) => {
+      const orderA = a.order !== undefined ? a.order : Number.MAX_SAFE_INTEGER;
+      const orderB = b.order !== undefined ? b.order : Number.MAX_SAFE_INTEGER;
+      if (orderA !== orderB) {
+        return orderA - orderB;
+      }
+      return a.createdAt - b.createdAt;
+    });
 
   columnTasks.forEach(task => {
     taskList.appendChild(renderTask(task));
@@ -277,10 +319,32 @@ function renderTask(task) {
 
 async function addTask(text, description, columnId) {
   if (!text.trim()) return;
+
+  const colTasks = data.tasks.filter(t => t.columnId === columnId);
+  const maxOrder = colTasks.length > 0
+    ? Math.max(...colTasks.map(t => t.order !== undefined ? t.order : -1))
+    : -1;
+
   const task = createTodoItem(text, description, columnId);
+  task.order = maxOrder + 1;
+
   data.tasks.push(task);
   await persistData();
   renderBoard();
+}
+
+function getDragAfterElement(container, y) {
+  const draggableElements = [...container.querySelectorAll('.task-card:not(.dragging)')];
+
+  return draggableElements.reduce((closest, child) => {
+    const box = child.getBoundingClientRect();
+    const offset = y - box.top - box.height / 2;
+    if (offset < 0 && offset > closest.offset) {
+      return { offset: offset, element: child };
+    } else {
+      return closest;
+    }
+  }, { offset: Number.NEGATIVE_INFINITY }).element;
 }
 
 async function updateTask(taskId, text, description) {
