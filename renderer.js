@@ -330,6 +330,12 @@ addColumnBtn.addEventListener('click', () => {
 
 columnCancelBtn.addEventListener('click', () => showModalOverlay(false));
 
+columnInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') {
+    columnSaveBtn.click();
+  }
+});
+
 columnSaveBtn.addEventListener('click', async () => {
   const title = columnInput.value.trim();
   if (title) {
@@ -370,6 +376,12 @@ function openTaskModal(task = null, columnId = null) {
 }
 
 taskCancelBtn.addEventListener('click', () => showModalOverlay(false));
+
+taskTitleInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') {
+    taskSaveBtn.click();
+  }
+});
 
 taskSaveBtn.addEventListener('click', async () => {
   const title = taskTitleInput.value.trim();
